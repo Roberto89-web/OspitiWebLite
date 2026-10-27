@@ -1,16 +1,99 @@
 # OspitiWebLite
 
 Versione **"lite"** di *OspitiWebServer*: stessa base PHP 8.3 + MySQL, **senza** framework né passo di build.
-Sono state tenute solo le funzionalità "di base" (sync Airbnb/ICS, registrazione manuale, CRUD ospiti,
-esportazioni, camere, lookups, login, privacy). Sono state escluse: tasse/pricing/rate-rules, calendario UI,
-OCR/face-check, self check-in, incassi, costi struttura, GIES, member-types.
+Contiene le funzionalità "di base" per la gestione ospiti (CRUD, sync ICS/Airbnb, registrazione a 2 step,
+lookups, esportazioni, camere, login, privacy). Le funzionalità avanzate sono mantenibili nella
+versione **completa** di *OspitiWebServer*.
 
+- Requisiti: **PHP 8.3+**, **MySQL 8 / MariaDB 10.6+**, **Node 20+** (frontend) e **Docker** (dev/serve).
 - `vendor/` **è committato** e l'immagine Docker **non** esegue `composer install`.
 - Dipendenze runtime (Composer): `symfony/yaml ^6.0`, `vlucas/phpdotenv ^5.5` (vedi `composer.json`).
 
 ---
 
-## 1. Struttura delle cartelle
+## 1. Installazione e avvio
+
+### 1.1 Prerequisiti
+
+| Componente | Versione | Dove |
+|---|---|---|
+| Docker + Docker Compose | recente | host |
+| PHP | 8.3+ | dentro l'immagine `php:8.3-apache` (niente setup locale) |
+| MySQL / MariaDB | 10.6+ | immagine `mariadb:11` gestita da Compose |
+| Node.js | 20+ | `client/` (solo in dev) |
+
+L'unico setup lato host è **Docker**.
+
+### 1.2 Avvio (dev / local)
+
+```bash
+git clone https://github.com/Roberto89-web/OspitiWebLite
+cd OspitiWebLite
+docker compose up -d --build
+```
+
+Al primo avvio Compose importa automaticamente `db/install.sql` + `db/seed_admin.sql` (idempotenti) e crea l'immagine da `Dockerfile` (PHP 8.3 + Apache + DocumentRoot `public/`).
+
+- Backend: `http://localhost:8081` (porta mappata in `docker-compose.yml`)
+- Pannello admin: `http://localhost:8081/web/login` — credenziali seed `admin` / `Admin@2026!` (**cambiala** al primo login)
+- Verifica: `curl -i http://localhost:8081/login` deve rispondere `200` (pagina login HTML)
+
+### 1.3 Frontend (Angular) — due opzioni
+
+**Opzione A — dev (consigliata)**: SPA su :4200, proxy verso :8081 (`client/proxy.conf.json`).
+
+```bash
+cd client
+npm install
+npm start          # serve http://localhost:4200, proxy /web → http://localhost:8081
+```
+
+**Opzione B — build unica in Apache**: output della build dentro `public/ospiti/` (già servito dal container). Richiede il container in stop per la copia.
+
+```bash
+cd client
+npm install
+npm run build                       # output in ../public/ospiti/browser/, baseHref /ospiti/
+docker compose stop app
+cp -r public/ospiti/browser ./.build
+docker cp ./.build app:/var/www/html/public/ospiti/
+docker compose start app
+# → SPA accessibile a http://localhost:8081/ospiti/
+```
+
+> In dev, **Opzione A** è più semplice: il CSP `frame-ancestors 'none'` di `public/index.php` non blocca la SPA servita su :4200 (altro origin). In produzione con TLS + reverse proxy si usa opzione B.
+
+> **Nota**: la password `Admin@2026!` è solo per il seed di `db/seed_admin.sql` (dev). In produzione cambiarla in DB direttamente (o rigenerare il seed con una password differente) prima del go-live:
+> ```sql
+> UPDATE users SET password = '<hashed>' WHERE username = 'admin';
+> ```
+
+### 1.4 Deploy (reverse proxy con TLS)
+
+Il backend **non** è pensato per essere esposto direttamente su internet: dietro un reverse proxy con certificato TLS, `Host/DNS` pubblici e `X-Forwarded-For` corretto.
+
+```apache
+# Apache / Nginx — esempi
+ProxyPass        /web/ http://app:8081/web/
+ProxyPassReverse /web/ http://app:8081/web/
+# per CORS cross-origin aggiungere:
+# ProxyPassReverseCookieDomain /web/ app.robertoruzzi.com
+```
+
+Prima del live (vedi §12.10):
+- `app.ambiente: production` (o `APP_AMBIENTE=production`)
+- `cors.allowed_origins` con il dominio pubblico (o `APP_CORS_ALLOWED_ORIGINS`)
+- `server.base_url` con l'URL pubblico
+- `app.nome_struttura` compilato (popola `/web/privacy`)
+- `database.user` ≠ root (crea un user dedicato, GRANT minimi — §12.5)
+- `ross1000.codice_posizione` compilato (o `APP_ROSS1000_CODICE_POSIZIONE`) prima di ogni export
+- `security.trusted_proxy_ips` con l'IP del reverse proxy (anti-spoofing XFF — §12.3)
+- SPA buildata in `public/ospiti/browser/` e `client/src/environments/environment.prod.ts::apiUrl` corretto
+
+
+---
+
+## 2. Struttura delle cartelle
 
 ```
 OspitiWebLite/
@@ -60,7 +143,7 @@ OspitiWebLite/
 
 ---
 
-## 2. Autenticazione
+## 3. Autenticazione
 
 | Helper in `public/index.php` | Implementazione | Significato |
 |---|---|---|
@@ -68,7 +151,7 @@ OspitiWebLite/
 | `$authRoute(...)`            | `Auth::requireToken()` (def. `index.php:291`) | Bearer **o** cookie `lookup_session` (`userId === -1` = ospite) |
 | `$adminRoute(...)`           | `Auth::requireAdmin()` (def. `index.php:299`) | Bearer admin, **rifiuta** il cookie ospite `-1` |
 
-> Tutte le rotte sono esposte con prefisso `/web` (vedi §3).
+> Tutte le rotte sono esposte con prefisso `/web` (vedi §4).
 
 - Token guest (64 esadec. in URL) = flussi di registrazione.
 - Token admin (Bearer) = CRUD/export/rooms/lookup.
@@ -76,7 +159,7 @@ OspitiWebLite/
 
 ---
 
-## 3. Rotte — Pubblica
+## 4. Rotte — Pubblica
 
 Tutte le rotte sono esposte sotto il prefisso `/web` (normalizzato in `public/index.php` al dispatch):
 
@@ -97,7 +180,7 @@ Tutte le rotte sono esposte sotto il prefisso `/web` (normalizzato in `public/in
 
 ---
 
-## 4. Rotte — Autenticata (auth)
+## 5. Rotte — Autenticata (auth)
 
 | Metodo | Path | Handler | Chiama |
 |---|---|---|---|
@@ -114,7 +197,7 @@ Tutte le rotte sono esposte sotto il prefisso `/web` (normalizzato in `public/in
 
 ---
 
-## 5. Rotte — Admin
+## 6. Rotte — Admin
 
 | Metodo | Path | Handler | Chiama |
 |---|---|---|---|
@@ -131,7 +214,7 @@ Tutte le rotte sono esposte sotto il prefisso `/web` (normalizzato in `public/in
 
 ---
 
-## 6. Rotte — Lookup (auth)
+## 7. Rotte — Lookup (auth)
 
 | Metodo | Path | Handler | Chiama |
 |---|---|---|---|
@@ -147,7 +230,7 @@ Tutte le rotte sono esposte sotto il prefisso `/web` (normalizzato in `public/in
 
 ---
 
-## 7. Dipendenze interne (chi istanzia chi)
+## 8. Dipendenze interne (chi istanzia chi)
 
 | Clie | Metodi chiamati (estrazione dal sorgente) |
 |---|---|
@@ -160,7 +243,7 @@ Tutte le rotte sono esposte sotto il prefisso `/web` (normalizzato in `public/in
 
 ---
 
-## 8. Configurazione (chiusure con chi le legge)
+## 9. Configurazione (chiusure con chi le legge)
 
 Tutte le chiavi sono lette via `Config::get()` (YAML + override env `APP_*`):
 
@@ -191,7 +274,7 @@ Tutte le chiavi sono lette via `Config::get()` (YAML + override env `APP_*`):
 
 ---
 
-## 9. Flussi chiave (raggruppamento delle chiamate)
+## 10. Flussi chiave (raggruppamento delle chiamate)
 
 ### A) Login (pannello admin)
 ```
@@ -286,7 +369,7 @@ GET /web/api/lookups/{comuni|comuni/all|stati|documenti|tipo_alloggiato|tipo_tur
 
 ---
 
-## 10. Database (16 tabelle in `db/install.sql`)
+## 11. Database (16 tabelle in `db/install.sql`)
 
 | Tavola | Ruolo |
 |---|---|
@@ -310,21 +393,6 @@ GET /web/api/lookups/{comuni|comuni/all|stati|documenti|tipo_alloggiato|tipo_tur
 Seed incluso: `room_types` STD (capacity 2, beds 1) + `rooms` 'Cam 1' (beds 1).
 
 > Il file usa procedure idempotenti (`safe_add_column`, `safe_add_constraint`, `safe_drop_column`) e `CREATE TABLE IF NOT EXISTS` + `INSERT IGNORE` per essere ripetibile.
-
----
-
-## 11. Cosa è **escluso** da questa lite (riepilogo)
-
-- **Tasse di soggiorno** / incassi / costi struttura (tabelle `tassa_soggiorno_incassi`, `guest_incassi`, `costi_struttura`, `lk_metodo_pagamento`, `lk_origin_canale`, `lk_tipo_costo`)
-- **Pricing** / rate-rules / calendar (`rate_plans`, `rate_rules`, `daily_rates`, `calendar_dates`, `booking_nights`)
-- **Self check-in** (`selfcheckin_sessions` + rotte `/api/selfcheckin/*`, `access-code`, `generate-selfcheckin`)
-- **Door Access / Face-check** (`/door-access`, `/api/door-access/*`)
-- **GIES** (SOAP/curl/SimpleXML)
-- **Member Types** (`member_types`, rotte `/api/member-types/*`)
-- **OCR / docscan** (vendored Tesseract, `public/js/docscan/*`, `views/document-upload`)
-- **Availability UI** (rotte `/api/availability*`)
-
-> Il motore di overlap interno (`AvailabilityService::overlaps/conflicts/expand`) resta presente ed è usato da `GuestManager`/`IcsImportService` per i vincoli su create/update guest e ICS import.
 
 ---
 
@@ -380,7 +448,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES
 - `Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'` (`'unsafe-inline'` obbligatorio perché le viste hanno `<script>`/`<style>` inline; `frame-ancestors 'self'` blocca clickjacking).
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
-- `Strict-Transport-Security: max-age=31536000; includeSubDomains` — **solo** se `app.ambiente === 'production'` **e** la request è HTTPS (niente preload: il dominio è stato scelto di recente; in seguito si può aggiungere `; preload`).
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` — **solo** se `app.ambiente === 'production'` **e** la request è HTTPS.
 
 ### 12.8 Fail-fast ROSS 1000
 
@@ -401,8 +469,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES
 - [ ] `app.nome_struttura` con il nome reale della struttura (compilato in `config.yaml` o `APP_APP_NOME_STRUTTURA`) — usato in `/web/privacy`
 - [ ] `database.user` ≠ root (vedi §12.5)
 - [ ] `ross1000.codice_posizione` compilato prima di ogni export (vedi §12.8)
-- [ ] Front-end: `apiUrl` in `client/src/environments/environment.prod.ts` = `""` (stesso host)
+- [ ] Front-end: `apiUrl` in `client/src/environments/environment.prod.ts` corretto per il dominio (stesso host = `""` o assoluto)
 - [ ] Ingresso HTTPS (certificato) per abilitare HSTS + CSP
+- [ ] `security.trusted_proxy_ips` con l'IP del reverse proxy (anti-spoofing XFF — §12.3)
 - [ ] `APP_LOCAL_DEPLOY` **non** impostato
 
 ---
