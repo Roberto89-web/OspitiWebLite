@@ -1,0 +1,21 @@
+# Secrets / ambiente locale
+.env
+.env.*
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build artifacts (client Angular + output servito)
+client/node_modules/
+client/.angular/
+client/dist/
+public/ospiti/
+
+# AI / agent tooling (interno al processo di sviluppo)
+AGENTS.md
+client/AGENTS.md
+.claude/
+.opencode/

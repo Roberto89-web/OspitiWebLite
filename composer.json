@@ -1,0 +1,15 @@
+{
+    "name": "betto/ospiti-web-server",
+    "description": "Guest Management System",
+    "type": "project",
+    "require": {
+        "php": ">=8.3",
+        "symfony/yaml": "^6.0",
+        "vlucas/phpdotenv": "^5.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}

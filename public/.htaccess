@@ -1,0 +1,28 @@
+RewriteEngine On
+
+# ── SPA Angular sotto /ospiti/ ─────────────────────────────────────────
+# 1) asset statici reali (hashed chunks, favicon, styles) → browser/$1
+RewriteCond %{REQUEST_URI} ^/ospiti/(.+)$
+RewriteCond %{DOCUMENT_ROOT}/ospiti/browser/%1 -f
+RewriteRule ^ospiti/(.+)$ ospiti/browser/$1 [L]
+
+# 2) route SPA (guests, guests/edit/26, login, …) → index.html
+RewriteCond %{REQUEST_URI} ^/ospiti
+RewriteRule ^ospiti/.*$ ospiti/browser/index.html [L]
+
+# ── default → PHP router ────────────────────────────────────────────────
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+
+# ===================================================================
+# Cache asset statici
+# ===================================================================
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(wasm|traineddata\.gz|min\.js)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>

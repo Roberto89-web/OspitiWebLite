@@ -1,0 +1,97 @@
+app:
+  nome: "Ospiti Web Server"
+  # Nome della struttura (Titolare del trattamento). Sostituisce il
+  # placeholder {{NOME_STRUTTURA}} in views/privacy_e_termini_ospiti.md.
+  # Override env: APP_APP_NOME_STRUTTURA
+  nome_struttura: "casa vacanze"
+  ambiente: "local"
+  token_expiry_hours: 24
+  reg_token_expiry_days: 7
+  timezone: "Europe/Rome"
+
+
+server:
+  base_url: "https://localhost:8081"
+  # Prefisso asset statici (js/css) nei view.
+  # '' (default)  → Docker dev, DocumentRoot = public/  →  /js/…
+  # '/public'     → FTP/prod, DocumentRoot contiene public/ → /public/js/…
+  # Override env: APP_SERVER_ASSET_BASE
+  asset_base: ""
+
+
+# =============================================================================
+# CORS — allowlist delle origini che possono chiamare l'API cross-origin.
+# Valore: stringa con origini separate da virgola (es. "https://a.it,https://b.it").
+# VUOTO → nessuna origine consentita (default sicuro per produzione).
+# Override env: APP_CORS_ALLOWED_ORIGINS (stessa forma, virgole).
+# =============================================================================
+cors:
+  allowed_origins: ""
+
+
+# =============================================================================
+# SICUREZZA — trusted reverse proxy per rate-limiting.
+# VUOTO (default)    → non fidarsi mai di X-Forwarded-For: solo REMOTE_ADDR.
+# Non-vuoto          → se REMOTE_ADDR è tra questi IP, si legge XFF (left-most).
+#                      Utile dietro un reverse proxy (es. Apache/VPS) che aggiunge XFF.
+# Override env: APP_SECURITY_TRUSTED_PROXY_IPS (virgole).
+# =============================================================================
+security:
+  trusted_proxy_ips: ""
+
+
+database:
+  host: "localhost"
+  nome: "db"
+  user: "root"
+  pass: ""
+  charset: "utf8mb4"
+
+
+airbnb:
+  ics_url: ""
+
+
+# =============================================================================
+# ROSS 1000 — export "portale-alloggiati" (fixed-width txt)
+# Override via env: APP_ROSS1000_CODICE_POSIZIONE, APP_ROSS1000_TASSA_SOGGIORNO
+# - campo 24 tassa soggiorno     = tassa_soggiorno (default "1")
+# - campo 25 codice posizione    = codice_posizione (fisso, OBBLIGATORIO prima di ogni export)
+# - campi 21/22/23 (camere/letti) sono calcolati a runtime da GuestManager
+#   (tabelle rooms/room_types) — il pannello CRUD camere/room-types.
+# =============================================================================
+ross1000:
+  codice_posizione: "12345"        # campo 25, univoco e invariabile (da compilare)
+  tassa_soggiorno: "1"             # campo 24, default 1 per ogni persona
+
+
+# =============================================================================
+# DISPONIBILITÀ — buffer di preparazione camera (motore overlap core, no calendar UI)
+# Override via env: APP_AVAILABILITY_PREP_BEFORE_DAYS, APP_AVAILABILITY_PREP_AFTER_DAYS
+# - prep_before_days: notti da considerare occupate PRIMA del check-in (preparazione).
+# - prep_after_days:  notti da considerare occupate DOPO il check-out (turnover).
+# =============================================================================
+availability:
+  prep_before_days: 1
+  prep_after_days:  1
+
+
+# =============================================================================
+# RATE LIMITING — soglie e finestre per le rotte sensibili (login / registrazione).
+# Ogni voce: max = tentativi consentiti nella finestra, window = finestra (secondi).
+# Override env: APP_RATE_LIMITS_LOGIN_MAX / _WINDOW, stessa per le altre.
+# Chiave di conteggio:
+#   - login           → IP del client (Request::getRemoteIp)
+#   - register_submit → token di registrazione (un token non può essere abusato)
+#   - register_travel → token di registrazione (idempotente: una tantum)
+# =============================================================================
+rate_limits:
+  login:
+    max:    5
+    window: 300
+  register_submit:
+    max:    10
+    window: 3600
+  register_travel:
+    max:    5
+    window: 3600

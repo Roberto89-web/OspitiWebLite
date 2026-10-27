@@ -1,0 +1,22 @@
+@keyframes copyFadeIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -1rem);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -1rem);
+  }
+}
+
+.copy-fade-in {
+  animation: copyFadeIn 2.5s ease-in-out forwards;
+}
