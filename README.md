@@ -483,3 +483,19 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES
 - `vendor/` committato (come per il progetto parent).
 - L'asset base è normalizzato da `asset_url(string $path)` (definita in `public/index.php:38`); i view **non** hardcodano il prefisso statico.
 - Le risposte JSON passano sempre da `Response::json`/`Response::downloadFile` (`Response::availability()` rimosso).
+
+---
+
+## Esclusione di garanzie e limiti d'uso
+
+Questo software è fornito "così com'è", senza garanzie di alcun tipo, esplicite o
+implicite, incluse (a titolo esemplificativo) garanzie di funzionamento, assenza di
+errori, sicurezza o idoneità a uno scopo specifico. L'uso è a proprio rischio.
+
+Questo software non è stato progettato né verificato per il trattamento di dati
+sensibili o per ambiti critici (ad esempio sanità, pagamenti, sicurezza di persone o
+infrastrutture). Se intendi utilizzarlo in questi contesti, sei tenuto a effettuare
+autonomamente tutte le verifiche necessarie (sicurezza, conformità normativa, 
+protezione dei dati, test), sotto la tua esclusiva responsabilità.
+
+Per i termini completi si veda il file [LICENSE](LICENSE).
