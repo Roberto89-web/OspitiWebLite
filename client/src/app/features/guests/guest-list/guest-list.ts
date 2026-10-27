@@ -46,12 +46,19 @@ export class GuestListComponent implements OnInit {
   readonly importResult = signal<ImportIcsResponse | null>(null);
   readonly isSyncing = signal(false);
 
-  /** Anomalie ordinate per `arrival_date` decrescente (le più recenti in cima). */
-  readonly anomaliesSorted = computed<IcsAnomaly[]>(() => {
-    const list = this.importResult()?.anomalies ?? [];
+  /** Ordina le righe per `arrival_date` decrescente (le più recenti in cima). */
+  private sortAnomalies(list: IcsAnomaly[]): IcsAnomaly[] {
     return [...list].sort((a, b) =>
       (b.arrival_date ?? '').localeCompare(a.arrival_date ?? ''));
-  });
+  }
+
+  /** Righe `stato='I'`: conservate per un token attivo, non più in ICS. */
+  readonly anomaliesSorted = computed<IcsAnomaly[]>(() =>
+    this.sortAnomalies((this.importResult()?.anomalies ?? []).filter(a => a.stato === 'I')));
+
+  /** Righe `stato='O'`: prenotazioni in sovrapposizione (ultimo evento vince). */
+  readonly overlapsSorted = computed<IcsAnomaly[]>(() =>
+    this.sortAnomalies((this.importResult()?.anomalies ?? []).filter(a => a.stato === 'O')));
 
   /** Anni disponibili per il selettore (range -5…+10 attorno all'anno corrente). */
   readonly availableYears = computed(() => {
@@ -241,8 +248,9 @@ export class GuestListComponent implements OnInit {
 
   syncCalendar(): void {
     const ok = window.confirm(
-      'Sincronizzare il calendario? Gli ospiti di prenotazioni rimosse ' +
-      'da ICS che hanno un token saranno conservati e contrassegnati come "anomalia".');
+      'Sincronizzare il calendario? Le prenotazioni conflittuali verranno comunque ' +
+      'importate e contrassegnate come "sovrapposizione"; quelle rimosse da ICS con ' +
+      'un token attivo saranno conservate e segnate come "anomalia".');
     if (!ok) return;
 
     this.isSyncing.set(true);

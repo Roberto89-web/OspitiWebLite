@@ -32,8 +32,9 @@ export interface Guest {
   NumOspiti: number;
   Stato: number;
   registrazioneConfermata: boolean;
-  /** 'I' = non più presente nel calendario ICS, conservato per un token di registrazione attivo. */
-  anomaly?: 'I' | null;
+  /** 'I' = non più presente nel calendario ICS, conservato per un token attivo;
+   *  'O' = sovrapposizione confermata (ultimo evento vince). */
+  anomaly?: 'I' | 'O' | null;
 }
 
 export interface GuestSaveRequest {
@@ -64,16 +65,20 @@ export interface IcsAnomaly {
   guest_id: number;
   arrival_date: string | null;
   departure_date: string | null;
-  stato: 'I';
+  /** 'I' = conservato per token attivo; 'O' = sovrapposizione rilevata. */
+  stato: 'I' | 'O';
+  reason?: string | null;
 }
 
 /** Risposta di POST /api/import-ics (estesa). */
 export interface ImportIcsResponse {
   message: string;
   guests_imported: number;
-  /** Numero di guest conservati per la regola "token presente". */
+  /** Numero di eventi ICS non validati (summary non booking / date non parseate). */
   skipped?: number;
   errors?: unknown[];
-  /** Lista dettagliata degli ospiti con `stato='I'`. */
+  /** Dettagli tecnici dei conflitti rilevati (kind, details). */
+  conflicts?: unknown[];
+  /** Lista dettagliata delle anomalie ('I') e sovrapposizioni ('O'). */
   anomalies?: IcsAnomaly[];
 }

@@ -51,7 +51,8 @@ export class GuestService {
     return this.http.post<RegistrationLinkResponse>(`${this.apiUrl}/api/guests/${id}/generate-link`, {});
   }
 
-  importIcs(): Observable<ImportIcsResponse> {
-    return this.http.post<ImportIcsResponse>(`${this.apiUrl}/api/import-ics`, {});
+  /** Importa l'ICS: `force=true` → non blocca sui conflitti, li marca (stato='O'). */
+  importIcs(force = true): Observable<ImportIcsResponse> {
+    return this.http.post<ImportIcsResponse>(`${this.apiUrl}/api/import-ics`, { force });
   }
 }

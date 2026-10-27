@@ -129,14 +129,20 @@
               <div class="flex justify-between items-start gap-3">
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2 flex-wrap">
-                    <h3 class="font-semibold text-gray-900 truncate">{{ item.guest.NomeCapofamiglia }} {{ item.guest.CognomeCapofamiglia }}</h3>
-                    @if (item.guest.anomaly === 'I') {
-                      <span class="inline-block px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-900 rounded-full"
-                            title="Non più presente nel calendario ICS, ma conservato per un token di registrazione attivo.">
-                        ⚠ Anomalia
-                      </span>
-                    }
-                  </div>
+                     <h3 class="font-semibold text-gray-900 truncate">{{ item.guest.NomeCapofamiglia }} {{ item.guest.CognomeCapofamiglia }}</h3>
+                     @if (item.guest.anomaly === 'I') {
+                       <span class="inline-block px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-900 rounded-full"
+                             title="Non più presente nel calendario ICS, ma conservato per un token di registrazione attivo.">
+                         ⚠ Anomalia
+                       </span>
+                     }
+                     @if (item.guest.anomaly === 'O') {
+                       <span class="inline-block px-2 py-0.5 text-xs font-semibold bg-orange-100 text-orange-900 rounded-full"
+                             title="Periodo in sovrapposizione con un'altra prenotazione: confermato come ultimo evento valido.">
+                         ⚠ Sovrapposizione
+                       </span>
+                     }
+                   </div>
                   <p class="text-sm text-gray-500 truncate">{{ item.guest.Email }}</p>
                 </div>
                 <!-- Icon-only actions -->
@@ -255,6 +261,12 @@
                           ⚠ Anomalia
                         </span>
                       }
+                      @if (item.guest.anomaly === 'O') {
+                        <span class="inline-block ml-2 px-2 py-0.5 text-xs font-semibold bg-orange-100 text-orange-900 rounded-full"
+                              title="Periodo in sovrapposizione con un'altra prenotazione: confermato come ultimo evento valido.">
+                          ⚠ Sovrapposizione
+                        </span>
+                      }
                     </td>
                     <td class="px-6 py-4 text-gray-600">{{ item.guest.Email }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ item.guest.NumOspiti }}</td>
@@ -338,16 +350,41 @@
             Sincronizzazione calendario
           </h3>
 
-          <div class="grid grid-cols-2 gap-3 text-sm">
+          <div class="grid grid-cols-3 gap-3 text-sm">
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
               <div class="text-gray-500 text-xs uppercase tracking-wide">Importati</div>
               <div class="font-bold text-lg text-gray-900">{{ importResult()?.guests_imported ?? 0 }}</div>
+            </div>
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <div class="text-orange-800 text-xs uppercase tracking-wide">Sovrapposizioni</div>
+              <div class="font-bold text-lg text-orange-900">{{ overlapsSorted().length }}</div>
             </div>
             <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <div class="text-amber-800 text-xs uppercase tracking-wide">Conservati (anomalia)</div>
               <div class="font-bold text-lg text-amber-900">{{ importResult()?.skipped ?? 0 }}</div>
             </div>
           </div>
+
+          @if (overlapsSorted().length > 0) {
+            <div class="pt-3 border-t border-gray-200">
+              <h4 class="text-sm font-semibold text-orange-900 mb-2">Sovrapposizioni rilevate</h4>
+              <ul class="divide-y divide-gray-100 max-h-64 overflow-y-auto" role="list">
+                @for (a of overlapsSorted(); track a.guest_id) {
+                  <li class="py-2 text-sm flex items-center justify-between gap-2">
+                    <span class="text-gray-800">
+                      <span class="font-medium">Prenotazione #{{ a.guest_id }}</span>
+                      <span class="text-gray-600 ml-1">({{ formatAnomalyRange(a) }})</span>
+                    </span>
+                  </li>
+                }
+              </ul>
+              <p class="text-xs text-gray-600 mt-3 leading-relaxed">
+                Queste prenotazioni intersecano altre prenotazioni già in calendario.
+                Sono state comunque <b>importate</b> e contrassegnate come sovrapposizione
+                (ultimo evento valida per la disponibilità).
+              </p>
+            </div>
+          }
 
           @if (anomaliesSorted().length > 0) {
             <div class="pt-3 border-t border-gray-200">
@@ -368,9 +405,11 @@
                 Verifica manualmente prima di modificarli o eliminarli.
               </p>
             </div>
-          } @else {
+          }
+
+          @if (anomaliesSorted().length === 0 && overlapsSorted().length === 0) {
             <p class="text-sm text-green-800 bg-green-50 border border-green-200 rounded-md px-3 py-2" role="status">
-              ✓ Sincronizzazione completata senza anomalie.
+              ✓ Sincronizzazione completata senza anomalie né sovrapposizioni.
             </p>
           }
 
