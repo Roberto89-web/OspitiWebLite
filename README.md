@@ -77,7 +77,7 @@ Il backend **non** è pensato per essere esposto direttamente su internet: dietr
 ProxyPass        /web/ http://app:8081/web/
 ProxyPassReverse /web/ http://app:8081/web/
 # per CORS cross-origin aggiungere:
-# ProxyPassReverseCookieDomain /web/ app.robertoruzzi.com
+# ProxyPassReverseCookieDomain /web/ ospitiweblite.iltuodominio.com
 ```
 
 Prima del live (vedi §12.10):
@@ -398,13 +398,13 @@ Seed incluso: `room_types` STD (capacity 2, beds 1) + `rooms` 'Cam 1' (beds 1).
 
 ## 12. Sicurezza
 
-Misure applicate a livello di `public/index.php`, `src/Auth.php` e nei servizi, pronte per il deploy pubblico su `app.robertoruzzi.com`.
+Misure applicate a livello di `public/index.php`, `src/Auth.php` e nei servizi, pronte per il deploy pubblico su `ospitiweblite.iltuodominio.com`.
 
 ### 12.1 CORS — allowlist (config-driven)
 
-`cors.allowed_origins` in `config.yaml` (lista di origini separate da **virgola**, es. `https://app.robertoruzzi.com,https://api.robertoruzzi.com`). Solo le origini allowlistate ricevono `Access-Control-Allow-Origin` + `Vary: Origin` + `Access-Control-Allow-Credentials: true`; le altre **non** ricevono header CORS (il browser blocca la lettura). `Origin` mancante (stesso-origini/CLI/PHP) non riceve header — comportamento safe-by-default.
+`cors.allowed_origins` in `config.yaml` (lista di origini separate da **virgola**, es. `https://ospitiweblite.iltuodominio.com,https://api.iltuodominio.com`). Solo le origini allowlistate ricevono `Access-Control-Allow-Origin` + `Vary: Origin` + `Access-Control-Allow-Credentials: true`; le altre **non** ricevono header CORS (il browser blocca la lettura). `Origin` mancante (stesso-origini/CLI/PHP) non riceve header — comportamento safe-by-default.
 
-Deploy: imposta `cors.allowed_origins: "https://app.robertoruzzi.com"` (o override `APP_CORS_ALLOWED_ORIGINS`).
+Deploy: imposta `cors.allowed_origins: "https://ospitiweblite.iltuodominio.com"` (o override `APP_CORS_ALLOWED_ORIGINS`).
 
 ### 12.2 CSRF — token per sessione lookup + Bearer
 
@@ -465,7 +465,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES
 
 - [ ] `app.ambiente: production` in `config.yaml` (o `APP_AMBIENTE=production`)
 - [ ] `cors.allowed_origins` con il dominio pubblico
-- [ ] `server.base_url` con URL pubblico (`https://app.robertoruzzi.com`)
+- [ ] `server.base_url` con URL pubblico (`https://ospitiweblite.iltuodominio.com`)
 - [ ] `app.nome_struttura` con il nome reale della struttura (compilato in `config.yaml` o `APP_APP_NOME_STRUTTURA`) — usato in `/web/privacy`
 - [ ] `database.user` ≠ root (vedi §12.5)
 - [ ] `ross1000.codice_posizione` compilato prima di ogni export (vedi §12.8)
